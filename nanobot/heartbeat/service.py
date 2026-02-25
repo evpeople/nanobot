@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Callable, Coroutine
 from loguru import logger
 
 if TYPE_CHECKING:
+    from nanobot.memory.proactive import ProactiveService
     from nanobot.providers.base import LLMProvider
 
 _HEARTBEAT_TOOL = [
@@ -59,6 +60,7 @@ class HeartbeatService:
         on_notify: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         interval_s: int = 30 * 60,
         enabled: bool = True,
+        proactive_service: ProactiveService | None = None,
     ):
         self.workspace = workspace
         self.provider = provider
@@ -67,8 +69,10 @@ class HeartbeatService:
         self.on_notify = on_notify
         self.interval_s = interval_s
         self.enabled = enabled
+        self.proactive_service = proactive_service
         self._running = False
         self._task: asyncio.Task | None = None
+        self._proactive_task: asyncio.Task | None = None
 
     @property
     def heartbeat_file(self) -> Path:
@@ -89,11 +93,17 @@ class HeartbeatService:
         """
         response = await self.provider.chat(
             messages=[
-                {"role": "system", "content": "You are a heartbeat agent. Call the heartbeat tool to report your decision."},
-                {"role": "user", "content": (
-                    "Review the following HEARTBEAT.md and decide whether there are active tasks.\n\n"
-                    f"{content}"
-                )},
+                {
+                    "role": "system",
+                    "content": "You are a heartbeat agent. Call the heartbeat tool to report your decision.",
+                },
+                {
+                    "role": "user",
+                    "content": (
+                        "Review the following HEARTBEAT.md and decide whether there are active tasks.\n\n"
+                        f"{content}"
+                    ),
+                },
             ],
             tools=_HEARTBEAT_TOOL,
             model=self.model,
@@ -116,6 +126,13 @@ class HeartbeatService:
 
         self._running = True
         self._task = asyncio.create_task(self._run_loop())
+
+        # Start proactive pulse check if service is provided
+        if self.proactive_service:
+            proactive_interval = self.proactive_service.config.proactive_pulse_interval
+            self._proactive_task = asyncio.create_task(self._run_proactive_loop(proactive_interval))
+            logger.info("Proactive pulse check started (every {}s)", proactive_interval)
+
         logger.info("Heartbeat started (every {}s)", self.interval_s)
 
     def stop(self) -> None:
@@ -124,6 +141,11 @@ class HeartbeatService:
         if self._task:
             self._task.cancel()
             self._task = None
+
+        # Stop proactive pulse check
+        if self._proactive_task:
+            self._proactive_task.cancel()
+            self._proactive_task = None
 
     async def _run_loop(self) -> None:
         """Main heartbeat loop."""
@@ -136,6 +158,30 @@ class HeartbeatService:
                 break
             except Exception as e:
                 logger.error("Heartbeat error: {}", e)
+
+    async def _run_proactive_loop(self, interval_s: int) -> None:
+        """Proactive pulse check loop."""
+        while self._running:
+            try:
+                await asyncio.sleep(interval_s)
+                if self._running and self.proactive_service:
+                    await self._proactive_tick()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Proactive pulse error: {}", e)
+
+    async def _proactive_tick(self) -> None:
+        """Execute a single proactive pulse check."""
+        if not self.proactive_service:
+            return
+
+        try:
+            sent_sessions = await self.proactive_service.pulse_check()
+            if sent_sessions:
+                logger.info("Proactive: sent caring messages to {} sessions", len(sent_sessions))
+        except Exception:
+            logger.exception("Proactive pulse check failed")
 
     async def _tick(self) -> None:
         """Execute a single heartbeat tick."""

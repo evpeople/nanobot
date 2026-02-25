@@ -36,3 +36,8 @@ class MemoryConfig(BaseModel):
     # ComfyUI 文生图
     comfyui_enabled: bool = False
     comfyui_server_address: str = "127.0.0.1:8188"
+    comfyui_workflow_dir: str = "data/comfyui_workflows"
+    comfyui_default_width: int = 768
+    comfyui_default_height: int = 1024
+    comfyui_default_steps: int = 20
+    comfyui_negative_prompt: str = ""

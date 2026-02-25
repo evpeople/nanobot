@@ -1,9 +1,19 @@
 """Configuration schema using Pydantic."""
 
 from pathlib import Path
-from pydantic import BaseModel, Field, ConfigDict
+from typing import TYPE_CHECKING
+
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
 from pydantic_settings import BaseSettings
+
+# Import config classes for runtime type resolution
+from nanobot.dreamlife.config import DreamLifeConfig
+from nanobot.memory.config import MemoryConfig
+from nanobot.personality.config import PersonalityConfig
+
+if TYPE_CHECKING:
+    pass
 
 
 class Base(BaseModel):
@@ -27,7 +37,9 @@ class TelegramConfig(Base):
     enabled: bool = False
     token: str = ""  # Bot token from @BotFather
     allow_from: list[str] = Field(default_factory=list)  # Allowed user IDs or usernames
-    proxy: str | None = None  # HTTP/SOCKS5 proxy URL, e.g. "http://127.0.0.1:7890" or "socks5://127.0.0.1:1080"
+    proxy: str | None = (
+        None  # HTTP/SOCKS5 proxy URL, e.g. "http://127.0.0.1:7890" or "socks5://127.0.0.1:1080"
+    )
     reply_to_message: bool = False  # If true, bot replies quote the original message
 
 
@@ -85,7 +97,9 @@ class EmailConfig(Base):
     from_address: str = ""
 
     # Behavior
-    auto_reply_enabled: bool = True  # If false, inbound email is read but no automatic reply is sent
+    auto_reply_enabled: bool = (
+        True  # If false, inbound email is read but no automatic reply is sent
+    )
     poll_interval_seconds: int = 30
     mark_seen: bool = True
     max_body_chars: int = 12000
@@ -162,13 +176,15 @@ class QQConfig(Base):
     enabled: bool = False
     app_id: str = ""  # 机器人 ID (AppID) from q.qq.com
     secret: str = ""  # 机器人密钥 (AppSecret) from q.qq.com
-    allow_from: list[str] = Field(default_factory=list)  # Allowed user openids (empty = public access)
+    allow_from: list[str] = Field(
+        default_factory=list
+    )  # Allowed user openids (empty = public access)
 
 
 class ChannelsConfig(Base):
     """Configuration for chat channels."""
 
-    send_progress: bool = True    # stream agent's text progress to the channel
+    send_progress: bool = True  # stream agent's text progress to the channel
     send_tool_hints: bool = False  # stream tool-call hints (e.g. read_file("…"))
     whatsapp: WhatsAppConfig = Field(default_factory=WhatsAppConfig)
     telegram: TelegramConfig = Field(default_factory=TelegramConfig)
@@ -222,8 +238,12 @@ class ProvidersConfig(Base):
     moonshot: ProviderConfig = Field(default_factory=ProviderConfig)
     minimax: ProviderConfig = Field(default_factory=ProviderConfig)
     aihubmix: ProviderConfig = Field(default_factory=ProviderConfig)  # AiHubMix API gateway
-    siliconflow: ProviderConfig = Field(default_factory=ProviderConfig)  # SiliconFlow (硅基流动) API gateway
-    volcengine: ProviderConfig = Field(default_factory=ProviderConfig)  # VolcEngine (火山引擎) API gateway
+    siliconflow: ProviderConfig = Field(
+        default_factory=ProviderConfig
+    )  # SiliconFlow (硅基流动) API gateway
+    volcengine: ProviderConfig = Field(
+        default_factory=ProviderConfig
+    )  # VolcEngine (火山引擎) API gateway
     openai_codex: ProviderConfig = Field(default_factory=ProviderConfig)  # OpenAI Codex (OAuth)
     github_copilot: ProviderConfig = Field(default_factory=ProviderConfig)  # Github Copilot (OAuth)
 
@@ -285,18 +305,50 @@ class ToolsConfig(Base):
 class Config(BaseSettings):
     """Root configuration for nanobot."""
 
+    model_config = ConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__")
+
     agents: AgentsConfig = Field(default_factory=AgentsConfig)
     channels: ChannelsConfig = Field(default_factory=ChannelsConfig)
     providers: ProvidersConfig = Field(default_factory=ProvidersConfig)
     gateway: GatewayConfig = Field(default_factory=GatewayConfig)
     tools: ToolsConfig = Field(default_factory=ToolsConfig)
 
+    # AI Girlfriend Services
+    memory: MemoryConfig = Field(default_factory=lambda: _get_default_memory_config())
+    personality: PersonalityConfig = Field(
+        default_factory=lambda: _get_default_personality_config()
+    )
+    dreamlife: DreamLifeConfig = Field(default_factory=lambda: _get_default_dreamlife_config())
+
+
+def _get_default_memory_config() -> "MemoryConfig":
+    """Get default memory config."""
+    from nanobot.memory.config import MemoryConfig
+
+    return MemoryConfig()
+
+
+def _get_default_personality_config() -> "PersonalityConfig":
+    """Get default personality config."""
+    from nanobot.personality.config import PersonalityConfig
+
+    return PersonalityConfig()
+
+
+def _get_default_dreamlife_config() -> "DreamLifeConfig":
+    """Get default dreamlife config."""
+    from nanobot.dreamlife.config import DreamLifeConfig
+
+    return DreamLifeConfig()
+
     @property
     def workspace_path(self) -> Path:
         """Get expanded workspace path."""
         return Path(self.agents.defaults.workspace).expanduser()
 
-    def _match_provider(self, model: str | None = None) -> tuple["ProviderConfig | None", str | None]:
+    def _match_provider(
+        self, model: str | None = None
+    ) -> tuple["ProviderConfig | None", str | None]:
         """Match provider config and its registry name. Returns (config, spec_name)."""
         from nanobot.providers.registry import PROVIDERS
 
@@ -363,5 +415,3 @@ class Config(BaseSettings):
             if spec and spec.is_gateway and spec.default_api_base:
                 return spec.default_api_base
         return None
-
-    model_config = ConfigDict(env_prefix="NANOBOT_", env_nested_delimiter="__")
