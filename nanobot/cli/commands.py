@@ -559,7 +559,13 @@ def agent(
     dreamlife_service = None
 
     async def _init_services():
+        import os
+
         nonlocal memory_service, personality_service, dreamlife_service
+
+        # Set OpenViking config file path if specified
+        if config.memory.config_file:
+            os.environ["OPENVIKING_CONFIG_FILE"] = config.memory.config_file
 
         # Initialize MemoryService if enabled
         if config.memory.enabled:

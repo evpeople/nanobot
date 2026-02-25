@@ -52,6 +52,7 @@ class MemoryConfig(BaseModel):
 
     # OpenViking
     storage_path: str = "~/.nanobot/openviking"
+    config_file: str = ""  # OpenViking config file path, defaults to ~/.openviking/ov.conf
 
     # Commit 策略
     auto_commit: bool = True

@@ -320,27 +320,6 @@ class Config(BaseSettings):
     )
     dreamlife: DreamLifeConfig = Field(default_factory=lambda: _get_default_dreamlife_config())
 
-
-def _get_default_memory_config() -> "MemoryConfig":
-    """Get default memory config."""
-    from nanobot.memory.config import MemoryConfig
-
-    return MemoryConfig()
-
-
-def _get_default_personality_config() -> "PersonalityConfig":
-    """Get default personality config."""
-    from nanobot.personality.config import PersonalityConfig
-
-    return PersonalityConfig()
-
-
-def _get_default_dreamlife_config() -> "DreamLifeConfig":
-    """Get default dreamlife config."""
-    from nanobot.dreamlife.config import DreamLifeConfig
-
-    return DreamLifeConfig()
-
     @property
     def workspace_path(self) -> Path:
         """Get expanded workspace path."""
@@ -415,3 +394,24 @@ def _get_default_dreamlife_config() -> "DreamLifeConfig":
             if spec and spec.is_gateway and spec.default_api_base:
                 return spec.default_api_base
         return None
+
+
+def _get_default_memory_config() -> "MemoryConfig":
+    """Get default memory config."""
+    from nanobot.memory.config import MemoryConfig
+
+    return MemoryConfig()
+
+
+def _get_default_personality_config() -> "PersonalityConfig":
+    """Get default personality config."""
+    from nanobot.personality.config import PersonalityConfig
+
+    return PersonalityConfig()
+
+
+def _get_default_dreamlife_config() -> "DreamLifeConfig":
+    """Get default dreamlife config."""
+    from nanobot.dreamlife.config import DreamLifeConfig
+
+    return DreamLifeConfig()
