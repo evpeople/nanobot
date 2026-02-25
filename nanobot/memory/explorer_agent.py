@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from loguru import logger
 
 from nanobot.agent.tools.registry import ToolRegistry
+from nanobot.memory.client import OpenVikingClient
 from nanobot.memory.config import SmartProactiveConfig
 from nanobot.memory.explorer_tools import (
     CreateOpportunityTool,
@@ -17,6 +18,7 @@ from nanobot.memory.explorer_tools import (
 from nanobot.memory.opportunity import Opportunity, OpportunitySource
 
 if TYPE_CHECKING:
+    from nanobot.memory.client import OpenVikingClient
     from nanobot.providers.base import LLMProvider
 
 
@@ -58,11 +60,12 @@ class ExplorerAgent:
    - 优先级：高
 
 ## 工具
-你有两个专用工具：
+你可以使用以下专用工具：
 - `memory_search`: 搜索记忆库（语义搜索）
 - `memory_overview`: 获取记忆的摘要信息
 - `relations`: 获取相关联的记忆
 - `get_recent_sessions`: 获取最近的对话 session
+- `create_opportunity`: 创建一个可主动发消息的机会点
 
 ## 输出格式
 找到机会点后，调用 `create_opportunity` 工具创建机会点。
@@ -81,8 +84,8 @@ class ExplorerAgent:
     def __init__(
         self,
         provider: "LLMProvider",
-        openviking_client,
-        config: "SmartProactiveConfig",
+        openviking_client: OpenVikingClient,
+        config: SmartProactiveConfig,
         model: str | None = None,
         temperature: float = 0.7,
         max_tokens: int = 4096,

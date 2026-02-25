@@ -149,7 +149,11 @@ class SmartProactiveService:
         # Get DreamLife shareable moments if enabled
         if self.dreamlife_integration and self.config.dreamlife_share_enabled:
             try:
-                dreamlife_opportunities = await self.dreamlife_integration.get_shareable_moments()
+                # Use the first session for DreamLife sharing
+                default_session = sessions[0] if sessions else "default"
+                dreamlife_opportunities = await self.dreamlife_integration.get_shareable_moments(
+                    default_session
+                )
                 for opp in dreamlife_opportunities:
                     await self.tracker._save(opp)
             except Exception as e:

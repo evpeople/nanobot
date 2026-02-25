@@ -16,8 +16,12 @@ class DreamLifeIntegration:
         self.dreamlife_service = dreamlife_service
         self.tracker = tracker
 
-    async def get_shareable_moments(self) -> list[Opportunity]:
-        """Get shareable life moments as opportunities."""
+    async def get_shareable_moments(self, session_id: str = "default") -> list[Opportunity]:
+        """Get shareable life moments as opportunities.
+
+        Args:
+            session_id: The session ID to associate with the opportunity.
+        """
         opportunities = []
 
         # 1. Check if there's anything worth sharing today
@@ -32,7 +36,7 @@ class DreamLifeIntegration:
                     context=f"今天的生活: {summary}",
                     priority=50,  # Medium priority
                     status=OpportunityStatus.PENDING,
-                    session_id="default",  # Need to use actual session
+                    session_id=session_id,
                     tags=["dreamlife", "daily"],
                 )
                 opportunities.append(opp)
