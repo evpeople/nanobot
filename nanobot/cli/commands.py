@@ -7,6 +7,13 @@ import signal
 import sys
 from pathlib import Path
 
+# Allow nested event loops for typer compatibility
+try:
+    import nest_asyncio
+    nest_asyncio.apply()
+except ImportError:
+    pass
+
 import typer
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
@@ -293,7 +300,6 @@ def gateway(
 
     if verbose:
         import logging
-
         logging.basicConfig(level=logging.DEBUG)
 
     console.print(f"{__logo__} Starting nanobot gateway on port {port}...")
@@ -314,6 +320,10 @@ def gateway(
         from nanobot.memory.proactive import ProactiveService
         from nanobot.memory.service import MemoryService as MemSvc
         from nanobot.personality.service import PersonalityService as PersSvc
+
+        # Set OpenViking config file path if specified
+        if config.memory.config_file:
+            os.environ["OPENVIKING_CONFIG_FILE"] = config.memory.config_file
 
         memory_service = None
         personality_service = None

@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Protocol
 
 from loguru import logger
 
-from nanobot.dreamlife.integrated import DreamLifeIntegration
 from nanobot.memory.config import SmartProactiveConfig
 from nanobot.memory.explorer_agent import ExplorerAgent
 from nanobot.memory.opportunity import Opportunity, OpportunitySource
 from nanobot.memory.tracker import OpportunityTracker
 
 if TYPE_CHECKING:
+    from nanobot.dreamlife.integrated import DreamLifeIntegration
     from nanobot.providers.base import LLMProvider
 
 
@@ -69,9 +69,11 @@ class SmartProactiveService:
 
         self.tracker = OpportunityTracker(openviking_client)
 
-        # DreamLife integration
+        # DreamLife integration - lazy import to avoid circular dependency
         self.dreamlife_service = dreamlife_service
         if dreamlife_service and config.dreamlife_share_enabled:
+            from nanobot.dreamlife.integrated import DreamLifeIntegration
+
             self.dreamlife_integration = DreamLifeIntegration(dreamlife_service, self.tracker)
         else:
             self.dreamlife_integration = None
