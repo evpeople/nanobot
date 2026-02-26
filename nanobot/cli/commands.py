@@ -384,10 +384,25 @@ def gateway(
             proactive_service = ProactiveService(config=config.memory, sender=proactive_sender)
             console.print("[green]✓[/green] Proactive service initialized")
 
-        return memory_service, personality_service, dreamlife_service, proactive_service
+        # Initialize PersonalityUpdater if personality is enabled
+        personality_updater = None
+        if personality_service and config.personality.update_interval_hours > 0:
+            from nanobot.personality.updater import PersonalityUpdater
+            personality_updater = PersonalityUpdater(
+                personality_service=personality_service,
+                provider=provider,
+                session_manager=session_manager,
+                model=config.agents.defaults.model,
+                update_interval_hours=config.personality.update_interval_hours,
+            )
+            console.print(
+                f"[green]✓[/green] Personality updater initialized (update every {config.personality.update_interval_hours}h)"
+            )
+
+        return memory_service, personality_service, dreamlife_service, proactive_service, personality_updater
 
     # Run async initialization
-    memory_service, personality_service, dreamlife_service, proactive_service = asyncio.run(
+    memory_service, personality_service, dreamlife_service, proactive_service, personality_updater = asyncio.run(
         _init_gateway_services()
     )
 
@@ -492,6 +507,7 @@ def gateway(
         interval_s=hb_cfg.interval_s,
         enabled=hb_cfg.enabled,
         proactive_service=proactive_service,
+        personality_updater=personality_updater,
     )
 
     if channels.enabled_channels:

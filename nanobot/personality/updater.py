@@ -12,6 +12,7 @@ if TYPE_CHECKING:
     from nanobot.providers.base import LLMProvider
 
 from nanobot.personality.service import PersonalityService
+from nanobot.session.manager import SessionManager
 
 ANALYSIS_SYSTEM_PROMPT = """你是一个性格分析助手。根据用户和AI的对话历史，分析并更新AI的人格参数。
 
@@ -42,11 +43,13 @@ class PersonalityUpdater:
         self,
         personality_service: PersonalityService,
         provider: LLMProvider,
+        session_manager: SessionManager,
         model: str = "gpt-4o-mini",
         update_interval_hours: int = 24,
     ) -> None:
         self.personality_service = personality_service
         self.provider = provider
+        self.session_manager = session_manager
         self.model = model
         self.update_interval_hours = update_interval_hours
         self._last_update_time: float | None = None
@@ -218,3 +221,45 @@ class PersonalityUpdater:
 
         if "background" in update_data and update_data["background"]:
             config.background = update_data["background"]
+
+    async def update_from_all_sessions(self, max_sessions: int = 10, max_messages: int = 100) -> bool:
+        """Update personality from all active sessions.
+
+        Args:
+            max_sessions: Maximum number of sessions to analyze
+            max_messages: Maximum messages per session to analyze
+
+        Returns:
+            True if update was successful
+        """
+        sessions = self.session_manager.list_sessions()
+        if not sessions:
+            logger.debug("PersonalityUpdater: No sessions found")
+            return False
+
+        # Get most recent sessions
+        recent_sessions = sessions[:max_sessions]
+
+        # Collect conversation history from all sessions
+        all_conversations: list[dict[str, str]] = []
+        for session_info in recent_sessions:
+            try:
+                session = self.session_manager.get_or_create(session_info["key"])
+                history = session.get_history(max_messages=max_messages)
+                all_conversations.extend(history)
+            except Exception as e:
+                logger.warning("PersonalityUpdater: Failed to load session {} - {}", session_info["key"], e)
+                continue
+
+        if not all_conversations:
+            logger.debug("PersonalityUpdater: No conversation history found")
+            return False
+
+        # Sort by order (user, assistant, user, assistant...)
+        # and limit total messages
+        all_conversations = all_conversations[:max_messages * max_sessions]
+
+        logger.info("PersonalityUpdater: Analyzing {} messages from {} sessions",
+                    len(all_conversations), len(recent_sessions))
+
+        return await self.update_from_conversation(all_conversations)

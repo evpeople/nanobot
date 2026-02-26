@@ -10,6 +10,7 @@ from loguru import logger
 
 if TYPE_CHECKING:
     from nanobot.memory.proactive import ProactiveService
+    from nanobot.personality.updater import PersonalityUpdater
     from nanobot.providers.base import LLMProvider
 
 _HEARTBEAT_TOOL = [
@@ -61,6 +62,7 @@ class HeartbeatService:
         interval_s: int = 30 * 60,
         enabled: bool = True,
         proactive_service: ProactiveService | None = None,
+        personality_updater: "PersonalityUpdater" | None = None,
     ):
         self.workspace = workspace
         self.provider = provider
@@ -70,9 +72,11 @@ class HeartbeatService:
         self.interval_s = interval_s
         self.enabled = enabled
         self.proactive_service = proactive_service
+        self.personality_updater = personality_updater
         self._running = False
         self._task: asyncio.Task | None = None
         self._proactive_task: asyncio.Task | None = None
+        self._personality_task: asyncio.Task | None = None
 
     @property
     def heartbeat_file(self) -> Path:
@@ -133,6 +137,13 @@ class HeartbeatService:
             self._proactive_task = asyncio.create_task(self._run_proactive_loop(proactive_interval))
             logger.info("Proactive pulse check started (every {}s)", proactive_interval)
 
+        # Start personality update loop if updater is provided
+        if self.personality_updater:
+            update_interval_hours = self.personality_updater.update_interval_hours
+            update_interval_s = update_interval_hours * 3600
+            self._personality_task = asyncio.create_task(self._run_personality_loop(update_interval_s))
+            logger.info("Personality update loop started (every {} hours)", update_interval_hours)
+
         logger.info("Heartbeat started (every {}s)", self.interval_s)
 
     def stop(self) -> None:
@@ -146,6 +157,11 @@ class HeartbeatService:
         if self._proactive_task:
             self._proactive_task.cancel()
             self._proactive_task = None
+
+        # Stop personality update loop
+        if self._personality_task:
+            self._personality_task.cancel()
+            self._personality_task = None
 
     async def _run_loop(self) -> None:
         """Main heartbeat loop."""
@@ -182,6 +198,37 @@ class HeartbeatService:
                 logger.info("Proactive: sent caring messages to {} sessions", len(sent_sessions))
         except Exception:
             logger.exception("Proactive pulse check failed")
+
+    async def _run_personality_loop(self, interval_s: int) -> None:
+        """Personality update loop."""
+        while self._running:
+            try:
+                await asyncio.sleep(interval_s)
+                if self._running and self.personality_updater:
+                    await self._personality_tick()
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error("Personality update error: {}", e)
+
+    async def _personality_tick(self) -> None:
+        """Execute a single personality update."""
+        if not self.personality_updater:
+            return
+
+        # Check if it's time to update
+        if not self.personality_updater.should_update():
+            logger.debug("PersonalityUpdater: not time to update yet")
+            return
+
+        try:
+            success = await self.personality_updater.update_from_all_sessions()
+            if success:
+                logger.info("PersonalityUpdater: personality updated successfully")
+            else:
+                logger.info("PersonalityUpdater: no update needed or update failed")
+        except Exception:
+            logger.exception("Personality update failed")
 
     async def _tick(self) -> None:
         """Execute a single heartbeat tick."""
