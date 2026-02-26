@@ -75,6 +75,10 @@ class MemoryConfig(BaseModel):
     # 智能主动关怀 (Phase 10)
     smart_proactive: SmartProactiveConfig = SmartProactiveConfig()
 
+    # 时间戳
+    timestamp_enabled: bool = True
+    timestamp_timezone: str = "Asia/Shanghai"
+
     # 照片墙
     photo_album_enabled: bool = True
     photo_album_max_count: int = 100

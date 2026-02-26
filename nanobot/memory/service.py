@@ -1,6 +1,8 @@
 """Memory service for nanobot AI girlfriend."""
 
+from datetime import datetime
 from typing import Any, Optional
+from zoneinfo import ZoneInfo
 
 from nanobot.memory.client import OpenVikingClient
 from nanobot.memory.config import MemoryConfig
@@ -29,6 +31,12 @@ class MemoryService:
             role: Message role (user/assistant)
             content: Message content
         """
+        # Add timestamp prefix if enabled
+        if self.config.timestamp_enabled:
+            tz = ZoneInfo(self.config.timestamp_timezone)
+            timestamp = datetime.now(tz).strftime("%Y-%m-%d %H:%M:%S")
+            content = f"[{timestamp}] {content}"
+
         await self.client.add_message(session_id, role, content)
 
         # Check threshold to trigger commit
